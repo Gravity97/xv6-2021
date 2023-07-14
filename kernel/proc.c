@@ -303,6 +303,8 @@ fork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  np->mask = p->mask;         //update mask
+
   pid = np->pid;
 
   release(&np->lock);
