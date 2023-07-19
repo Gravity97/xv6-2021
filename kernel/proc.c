@@ -656,3 +656,17 @@ procdump(void)
     printf("\n");
   }
 }
+
+// return the number of UNUSED process
+uint64
+oproc(void)
+{
+  uint64 cnt = 0;
+
+  for (int i = 0; i < NPROC; i++){
+    if(proc[i].state != UNUSED)
+      cnt++;
+  }
+
+  return cnt;
+}
