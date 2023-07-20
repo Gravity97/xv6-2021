@@ -9,11 +9,11 @@ void cal_prime(uint len, uint32 array[])
     uint32 prime = array[0];
     printf("prime %d\n", prime);
 
-    int fd[2];  //文件标识符
+    int fd[2];  //file descriptor
     if(pipe(fd) < 0)
         return;
 
-    //子进程会返回0
+    //child proc will return 0
     if(fork() == 0){
         close(fd[1]);
         len = 0;

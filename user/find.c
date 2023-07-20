@@ -18,7 +18,7 @@ void find(const char* path, const char* file)
     int fd;
     struct stat st;
 
-    //打开目录
+    //open the dir
     if((fd = open(path, 0)) < 0){
         fprintf(2, "find: cannot open %s\n", path);
         return;
@@ -31,12 +31,12 @@ void find(const char* path, const char* file)
     }
 
     switch (st.type){
-        case T_FILE:    //如果查询目录为文件
+        case T_FILE:
             if(strcmp(fmtname(path), file) == 0)
                 printf("%s\n", path);
             break;
 
-        case T_DIR:  // 如果是目录
+        case T_DIR:
             char buffer[512];
             if (strlen(path) + 1 + DIRSIZ + 1 > sizeof(buffer)) {
                 fprintf(2, "find: path too long\n");

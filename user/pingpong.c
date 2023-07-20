@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv)
 {
-    // pd1是从parent到child，pd2反之
+    // pd1 is from parent to child, pd2 is opposite
     int pd1[2], pd2[2];
 
     if(pipe(pd1) < 0 || pipe(pd2) < 0){
@@ -13,12 +13,12 @@ int main(int argc, char** argv)
 
     char buffer = 'd';
 
-    //如果是子进程，会返回0
+    //child proc will return 0
     if(fork() == 0){
         close(pd1[1]);
         close(pd2[0]);
 
-        //child读取数据
+        //child reads
         if(read(pd1[0], &buffer, 1) != 1){
             fprintf(2, "pingpong: child read failed\n");
             exit(1);
@@ -26,7 +26,7 @@ int main(int argc, char** argv)
 
         printf("%d: received ping\n", getpid());
 
-        //child写入数据
+        //child writes
         if(write(pd2[1], &buffer, 1) != 1){
             fprintf(2, "pingpong: child wrote failed\n");
             exit(1);
@@ -38,19 +38,19 @@ int main(int argc, char** argv)
         close(pd1[0]);
         close(pd2[1]);
 
-        //parent写入数据
+        //parent writes
         if(write(pd1[1], &buffer, 1) != 1){
             fprintf(2, "pingpong: parent wrote failed\n");
             exit(1);
         }
 
-        //parent读取数据
+        //parent reads
         if(read(pd2[0], &buffer, 1) != 1){
             fprintf(2, "pingpong: parent read failed\n");
             exit(1);
         }
 
-        //这里用read/write即可完成进程阻塞
+        //use read/write to block proc
         printf("%d: received pong\n", getpid());
         exit(0);
     }

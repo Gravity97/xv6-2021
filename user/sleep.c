@@ -8,7 +8,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    //这里传入的如果不是数字，会返回0
+    //will return 0 if sends not a number
     int ticks = atoi(argv[1]);
 
     sleep(ticks);
