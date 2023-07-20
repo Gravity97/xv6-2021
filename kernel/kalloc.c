@@ -81,6 +81,7 @@ kalloc(void)
   return (void*)r;
 }
 
+// return the number of free memory in kernel
 uint64 
 kfreemem()
 {
