@@ -1,1 +1,1 @@
-no defs for function walk in defs.h
+All the system calls that directly or indirectly invoked the copyout function could be made faster using this apporach.
