@@ -1,0 +1,1 @@
+no defs for function walk in defs.h
