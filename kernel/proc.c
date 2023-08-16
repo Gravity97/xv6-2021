@@ -444,8 +444,8 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-
-    for(p = proc; p < &proc[NPROC]; p++) {
+    
+    for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
@@ -454,7 +454,6 @@ scheduler(void)
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
-
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;

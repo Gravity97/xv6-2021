@@ -33,16 +33,19 @@ simpletest()
     exit(-1);
   }
 
-  if(pid == 0)
+  if(pid == 0){
+    //printf("%d\n", getpid());
     exit(0);
+  }
 
   wait(0);
+//printf("%daaa\n", getpid());
 
-  if(sbrk(-sz) == (char*)0xffffffffffffffffL){
+  if (sbrk(-sz) == (char*)0xffffffffffffffffL) {
     printf("sbrk(-%d) failed\n", sz);
     exit(-1);
   }
-
+  
   printf("ok\n");
 }
 
@@ -184,7 +187,7 @@ main(int argc, char *argv[])
 
   // check that the first simpletest() freed the physical memory.
   simpletest();
-
+  
   threetest();
   threetest();
   threetest();
