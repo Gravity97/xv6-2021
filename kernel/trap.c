@@ -80,7 +80,7 @@ usertrap(void)
   if(which_dev == 2){
     if(p->interval > 0){
       p->pstks++;
-      if(1 && p->pstks > p->interval){
+      if(!p->entry && p->pstks > p->interval){
         p->pstks = 0;
         memmove(p->alarmtf, p->trapframe, sizeof(struct trapframe));
         p->trapframe->epc = p->handler;
