@@ -1,0 +1,2 @@
+1. When there are 2 threads running concurrently, they may both find there is no key that they tried.
+   And they both think of the head position is right place, then the latter thread inserting will cause mistakes.
