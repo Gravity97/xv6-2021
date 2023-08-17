@@ -44,9 +44,7 @@ freerange(void *pa_start, void *pa_end)
   p = (char*)PGROUNDUP((uint64)pa_start);
   for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE){
     kfree(p);
-    acquire(&refcounts[PAINDEX((uint64)p)].lock);
     refcounts[PAINDEX((uint64)p)].refcount = 1;
-    release(&refcounts[PAINDEX((uint64)p)].lock);
   }
 }
 
@@ -62,7 +60,7 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  acquire(&refcounts[PAINDEX((uint64)pa)].lock);
+  acquirereflock(pa);
   refdecre(pa);
   if (refcounts[PAINDEX((uint64)pa)].refcount <= 0) {
     // Fill with junk to catch dangling refs.
@@ -75,7 +73,7 @@ kfree(void *pa)
     kmem.freelist = r;
     release(&kmem.lock);
   }
-  release(&refcounts[PAINDEX((uint64)pa)].lock);
+  releasereflock(pa);
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -89,9 +87,6 @@ kalloc(void)
   acquire(&kmem.lock);
   r = kmem.freelist;
   if(r){
-    // acquire(&refcounts[PAINDEX((uint64)r)].lock);
-    // refcounts[PAINDEX((uint64)r)].refcount = 1;
-    // release(&refcounts[PAINDEX((uint64)r)].lock);
     kmem.freelist = r->next;
   }
   release(&kmem.lock);
@@ -99,9 +94,9 @@ kalloc(void)
   if(r){
     memset((char*)r, 5, PGSIZE); // fill with junk
 
-    acquire(&refcounts[PAINDEX((uint64)r)].lock);
+    acquirereflock((void*)r);
     refcounts[PAINDEX((uint64)r)].refcount = 1;
-    release(&refcounts[PAINDEX((uint64)r)].lock);
+    releasereflock((void*)r);
   }
   return (void*)r;
 }
@@ -109,42 +104,44 @@ kalloc(void)
 void 
 refincre(void* pa)
 {
-  acquire(&refcounts[PAINDEX((uint64)pa)].lock);
   refcounts[PAINDEX((uint64)pa)].refcount++;
-  release(&refcounts[PAINDEX((uint64)pa)].lock);
 }
 
 void 
 refdecre(void* pa)
 {
-  //acquire(&refcounts[PAINDEX((uint64)pa)].lock);
   refcounts[PAINDEX((uint64)pa)].refcount--;
-  //release(&refcounts[PAINDEX((uint64)pa)].lock);
 }
 
-int
-getrefcount(void* pa)
+void 
+acquirereflock(void* pa)
 {
-  return refcounts[PAINDEX((uint64)pa)].refcount;
+  acquire(&refcounts[PAINDEX((uint64)pa)].lock);
+}
+
+void 
+releasereflock(void* pa)
+{
+  release(&refcounts[PAINDEX((uint64)pa)].lock);
 }
 
 void*
 cowkalloc(pagetable_t pagetable, uint64 pa)
 {
-  acquire(&refcounts[PAINDEX((uint64)pa)].lock);
+  acquirereflock((void*)pa);
   if(refcounts[PAINDEX(pa)].refcount <= 1){
     // if <= 1, we need not to alloc a new page.
-    release(&refcounts[PAINDEX((uint64)pa)].lock);
+    releasereflock((void*)pa);
     return (void*)pa;
   }
 
   char* mem;
   if((mem = kalloc()) == 0){
-    release(&refcounts[PAINDEX((uint64)pa)].lock);
+    releasereflock((void*)pa);
     return 0;
   }
   memmove(mem, (void*)pa, PGSIZE);
   refdecre((void*)pa);
-  release(&refcounts[PAINDEX((uint64)pa)].lock);
+  releasereflock((void*)pa);
   return (void*)mem;
 }

@@ -67,7 +67,7 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if( r_scause() == 15) {
+  } else if(r_scause() == 15) {
     //page fault. 13 implies read and 15 implies write.
     uint64 va = r_stval();
     if(va > MAXVA || va > p->sz){

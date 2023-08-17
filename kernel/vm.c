@@ -179,9 +179,8 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
     
-    uint64 pa = PTE2PA(*pte);
-    //refdecre((void*)pa);
     if (do_free) {
+      uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
     
@@ -314,9 +313,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     
-    // *pte = ((*pte) & ~PTE_W) | PTE_COW;
-    // flags = PTE_FLAGS(*pte);
-    // pa = PTE2PA(*pte);
     pa = PTE2PA(*pte);
     if(*pte & PTE_W) {
       *pte = (*pte & ~PTE_W) | PTE_COW;
@@ -329,7 +325,9 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       //kfree(mem);
       goto err;
     }
+    acquirereflock((void*)pa);
     refincre((void*)pa);
+    releasereflock((void*)pa);
   }
   return 0;
 
@@ -465,10 +463,6 @@ uvmcowalloc(pagetable_t pagetable, uint64 va)
     panic("uvmcowalloc: walk");
 
   uint64 pa = PTE2PA(*pte);
-
-//   if(getrefcount((void*)pa) <= 1){
-//     *pte = (*pte & ~PTE_COW) | PTE_W;
-//   }
 
   uint64 mem;
   if((mem = (uint64)cowkalloc(pagetable, pa)) == 0) {

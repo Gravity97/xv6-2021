@@ -65,7 +65,8 @@ void            kfree(void *);
 void            kinit(void);
 void            refincre(void*);
 void            refdecre(void*);
-int             getrefcount(void*);
+void            acquirereflock(void*);
+void            releasereflock(void*);
 void*           cowkalloc(pagetable_t, uint64);
 
 // log.c
