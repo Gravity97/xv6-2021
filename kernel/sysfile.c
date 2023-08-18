@@ -316,6 +316,33 @@ sys_open(void)
     }
   }
 
+  if((omode & O_NOFOLLOW) == 0){
+    int max_search = 10;
+    struct inode* next_ip;
+    while (max_search && ip->type == T_SYMLINK) {
+      if (readi(ip, 0, (uint64)path, 0, MAXPATH) == 0){
+        iunlockput(ip);
+        end_op();
+        return -1;
+      }
+
+      if((next_ip = namei(path)) == 0){
+        iunlockput(ip);
+        end_op();
+        return -1;
+      }
+      iunlockput(ip);
+      ip = next_ip;
+      max_search--;
+      ilock(ip);
+    }
+    if(max_search <= 0){
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+  }
+
   if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
     iunlockput(ip);
     end_op();
@@ -482,5 +509,31 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+uint64
+sys_symlink(void)
+{
+  struct inode* ip;
+  char objpath[MAXPATH], path[MAXPATH];
+  if(argstr(0, objpath, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+    return -1;
+
+  begin_op();
+  ip = create(path, T_SYMLINK, 0, 0);
+  if(ip == 0){
+    end_op();
+    return -1;
+  }
+
+  // write data into the inode
+  if (writei(ip, 0, (uint64)objpath, 0, strlen(objpath)) < 0) {
+    end_op();
+    return -1;
+  }
+
+  iunlockput(ip);   //ulock and put the inode
+  end_op();
   return 0;
 }
