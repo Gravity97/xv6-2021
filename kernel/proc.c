@@ -657,7 +657,7 @@ procdump(void)
   }
 }
 
-// return the number of UNUSED process
+// return the number of not UNUSED process
 uint64
 oproc(void)
 {
