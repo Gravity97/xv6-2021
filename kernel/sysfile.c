@@ -484,3 +484,97 @@ sys_pipe(void)
   }
   return 0;
 }
+
+#include "kernel/memlayout.h"
+
+uint64
+sys_mmap(void)
+{
+  uint64 addr, sz, offset;
+  int prot, flags, fd; 
+  struct file *f;
+
+  if(argaddr(0, &addr) < 0 || argaddr(1, &sz) < 0 || argint(2, &prot) < 0 ||
+     argint(3, &flags) < 0 || argfd(4, &fd, &f) < 0 || argaddr(5, &offset) < 0 || sz == 0)
+    return -1;
+
+  if((!f->readable && (prot & PROT_READ)) || (!f->writable && (prot & PROT_WRITE) && !(flags & MAP_PRIVATE)))
+    return -1;
+
+  sz = PGROUNDUP(sz);
+  struct proc* p = myproc();
+  struct vma* v = 0;
+  uint64 vaend = MMAPEND;
+  
+  for (int i = 0; i < VMASZ; i++) {
+    struct vma *v2 = &p->vmas[i];
+    if(v2->valid == 0) {
+      if(v == 0) {
+        v = &p->vmas[i];
+        v->valid = 1;
+      }
+    } 
+    else if(v2->vastart < vaend) {
+      vaend = PGROUNDDOWN(v2->vastart);
+    }
+  }
+
+  if(v == 0){
+    panic("mmap: no free vma");
+  }
+
+  v->vastart = vaend - sz;
+  v->sz = sz;
+  v->prot = prot;
+  v->flags = flags;
+  v->f = f;
+  v->offset = offset;
+
+  filedup(v->f);
+  return v->vastart;
+}
+
+uint64
+sys_munmap(void)
+{
+  uint64 addr, sz;
+
+  if(argaddr(0, &addr) < 0 || argaddr(1, &sz) < 0 || sz == 0)
+    return -1;
+
+  struct proc *p = myproc();
+
+  struct vma *v = findvma(p, addr);
+  if(!v) {
+    return -1;
+  }
+
+  if(addr > v->vastart && addr + sz < v->vastart + v->sz) {
+    // trying to dig a hole
+    return -1;
+  }
+
+  uint64 addr_aligned = addr;
+  if(addr > v->vastart) {
+    addr_aligned = PGROUNDUP(addr);
+  }
+
+  int nunmap = sz - (addr_aligned - addr);
+  if(nunmap < 0)
+    nunmap = 0;
+  
+  vmaunmap(p->pagetable, addr_aligned, nunmap, v);
+
+  if(addr <= v->vastart && addr + sz > v->vastart) {
+    v->offset += addr + sz - v->vastart;
+    v->vastart = addr + sz;
+  }
+  v->sz -= sz;
+
+  if(v->sz <= 0) {
+    fileclose(v->f);
+    v->valid = 0;
+  }
+
+  return 0;
+}

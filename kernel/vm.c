@@ -432,3 +432,92 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+#include "fcntl.h"
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "file.h"
+#include "proc.h"
+
+void
+vmaunmap(pagetable_t pagetable, uint64 va, uint64 nbytes, struct vma *v)
+{
+  uint64 a;
+  pte_t *pte;
+
+  // borrowed from "uvmunmap"
+  for(a = va; a < va + nbytes; a += PGSIZE){
+    if((pte = walk(pagetable, a, 0)) == 0)
+      continue;
+    if(PTE_FLAGS(*pte) == PTE_V)
+      panic("sys_munmap: not a leaf");
+    if(*pte & PTE_V){
+      uint64 pa = PTE2PA(*pte);
+      if((*pte & PTE_D) && (v->flags & MAP_SHARED)) { // dirty, need to write back to disk
+        begin_op();
+        ilock(v->f->ip);
+        uint64 aoff = a - v->vastart; // offset relative to the start of memory range
+        if(aoff < 0) { // if the first page is not a full 4k page
+          writei(v->f->ip, 0, pa + (-aoff), v->offset, PGSIZE + aoff);
+        } else if(aoff + PGSIZE > v->sz){  // if the last page is not a full 4k page
+          writei(v->f->ip, 0, pa, aoff, v->sz - aoff);
+        } else { // full 4k pages
+          writei(v->f->ip, 0, pa, v->offset + aoff, PGSIZE);
+        }
+        iunlock(v->f->ip);
+        end_op();
+      }
+      kfree((void*)pa);
+      *pte = 0;
+    }
+  }
+}
+
+struct vma*
+findvma(struct proc* p, uint64 va)
+{
+  for (int i = 0; i < VMASZ; i++){
+    struct vma* v = &p->vmas[i];
+    if(v->valid && va >= v->vastart && va < v->vastart + v->sz){
+      return v;
+    }
+  }
+  return 0;
+}
+
+int
+vmacheck(uint64 va)
+{
+  struct proc* p = myproc();
+  struct vma* v = findvma(p, va);
+  if(!v){
+    return 0;
+  }
+
+  void* pa = kalloc();
+  if(!pa){
+    panic("vmacheck: kalloc");
+  }
+  memset(pa, 0, PGSIZE);
+
+  //read data from pa
+  begin_op();
+  ilock(v->f->ip);
+  readi(v->f->ip, 0, (uint64)pa, v->offset + PGROUNDDOWN(va - v->vastart), PGSIZE);
+  iunlock(v->f->ip);
+  end_op();
+
+  int perm = PTE_U;
+  if(v->prot & PROT_READ)
+    perm |= PTE_R;
+  if(v->prot & PROT_WRITE)
+    perm |= PTE_W;
+  if(v->prot & PROT_EXEC)
+    perm |= PTE_X;
+
+  if(mappages(p->pagetable, va, PGSIZE, (uint64)pa, perm) < 0) {
+    panic("vmacheck: mappages");
+  }
+
+  return 1;
+}
