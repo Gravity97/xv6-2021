@@ -445,12 +445,11 @@ vmaunmap(pagetable_t pagetable, uint64 va, uint64 nbytes, struct vma *v)
   uint64 a;
   pte_t *pte;
 
-  // borrowed from "uvmunmap"
   for(a = va; a < va + nbytes; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0)
       continue;
     if(PTE_FLAGS(*pte) == PTE_V)
-      panic("sys_munmap: not a leaf");
+      panic("vmaunmap: not a leaf");
     if(*pte & PTE_V){
       uint64 pa = PTE2PA(*pte);
       if((*pte & PTE_D) && (v->flags & MAP_SHARED)) { // dirty, need to write back to disk
@@ -459,9 +458,11 @@ vmaunmap(pagetable_t pagetable, uint64 va, uint64 nbytes, struct vma *v)
         uint64 aoff = a - v->vastart; // offset relative to the start of memory range
         if(aoff < 0) { // if the first page is not a full 4k page
           writei(v->f->ip, 0, pa + (-aoff), v->offset, PGSIZE + aoff);
-        } else if(aoff + PGSIZE > v->sz){  // if the last page is not a full 4k page
+        } 
+        else if(aoff + PGSIZE > v->sz){  // if the last page is not a full 4k page
           writei(v->f->ip, 0, pa, aoff, v->sz - aoff);
-        } else { // full 4k pages
+        } 
+        else { // full 4k pages
           writei(v->f->ip, 0, pa, v->offset + aoff, PGSIZE);
         }
         iunlock(v->f->ip);
@@ -500,7 +501,7 @@ vmacheck(uint64 va)
   }
   memset(pa, 0, PGSIZE);
 
-  //read data from pa
+  //read data from file
   begin_op();
   ilock(v->f->ip);
   readi(v->f->ip, 0, (uint64)pa, v->offset + PGROUNDDOWN(va - v->vastart), PGSIZE);

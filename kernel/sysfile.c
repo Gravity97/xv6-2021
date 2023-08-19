@@ -537,37 +537,37 @@ sys_mmap(void)
 uint64
 sys_munmap(void)
 {
-  uint64 addr, sz;
+  uint64 va, sz;
 
-  if(argaddr(0, &addr) < 0 || argaddr(1, &sz) < 0 || sz == 0)
+  if(argaddr(0, &va) < 0 || argaddr(1, &sz) < 0 || sz == 0)
     return -1;
 
   struct proc *p = myproc();
 
-  struct vma *v = findvma(p, addr);
+  struct vma *v = findvma(p, va);
   if(!v) {
     return -1;
   }
 
-  if(addr > v->vastart && addr + sz < v->vastart + v->sz) {
+  if(va > v->vastart && va + sz < v->vastart + v->sz) {
     // trying to dig a hole
     return -1;
   }
 
-  uint64 addr_aligned = addr;
-  if(addr > v->vastart) {
-    addr_aligned = PGROUNDUP(addr);
+  uint64 alignedva = va;
+  if(va > v->vastart) {
+    alignedva = PGROUNDUP(va);
   }
 
-  int nunmap = sz - (addr_aligned - addr);
+  int nunmap = sz - (alignedva - va);
   if(nunmap < 0)
     nunmap = 0;
   
-  vmaunmap(p->pagetable, addr_aligned, nunmap, v);
+  vmaunmap(p->pagetable, alignedva, nunmap, v);
 
-  if(addr <= v->vastart && addr + sz > v->vastart) {
-    v->offset += addr + sz - v->vastart;
-    v->vastart = addr + sz;
+  if(va <= v->vastart && va + sz > v->vastart) {
+    v->offset += va + sz - v->vastart;
+    v->vastart = va + sz;
   }
   v->sz -= sz;
 
